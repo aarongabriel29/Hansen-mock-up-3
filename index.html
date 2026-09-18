@@ -1039,7 +1039,8 @@
 
 
 
-<!-- MOUSE DRAG + WHEEL SUPPORT FOR THE PRICING CAROUSEL -->
+
+<!-- MOUSE CLICK-AND-DRAG FOR THE PRICING CAROUSEL -->
 <script>
 (function () {
   var el = document.getElementById('pricing-carousel');
@@ -1048,6 +1049,10 @@
   el.style.cursor = 'grab';
 
   var down = false, startX = 0, startScroll = 0, moved = 0;
+
+  // stop the browser's native image drag, which would otherwise
+  // hijack the gesture the moment the pointer crosses a photo
+  el.addEventListener('dragstart', function (e) { e.preventDefault(); });
 
   el.addEventListener('mousedown', function (e) {
     if (e.button !== 0) return;
@@ -1066,35 +1071,20 @@
     el.scrollLeft = startScroll - dx;
   });
 
-  window.addEventListener('mouseup', function () {
+  function release() {
     if (!down) return;
     down = false;
     el.style.cursor = 'grab';
     el.style.removeProperty('user-select');
-  });
+  }
+  window.addEventListener('mouseup', release);
+  window.addEventListener('blur', release);
 
-  // a drag should not fire the button underneath the cursor
+  // a drag should not fire the button sitting under the cursor
   el.addEventListener('click', function (e) {
     if (moved > 6) { e.preventDefault(); e.stopPropagation(); }
     moved = 0;
   }, true);
-
-  // mouse wheel pans sideways while the pointer is over the carousel,
-  // and hands scrolling back to the page once it reaches either end
-  el.addEventListener('wheel', function (e) {
-    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-    var max = el.scrollWidth - el.clientWidth;
-    if (max <= 0) return;
-    var next = el.scrollLeft + e.deltaY;
-    if (next > 0 && next < max) { el.scrollLeft = next; e.preventDefault(); }
-  }, { passive: false });
-
-  // arrow keys once the carousel has focus
-  el.tabIndex = 0;
-  el.addEventListener('keydown', function (e) {
-    if (e.key === 'ArrowRight') { el.scrollBy({ left: 400, behavior: 'smooth' }); e.preventDefault(); }
-    if (e.key === 'ArrowLeft')  { el.scrollBy({ left: -400, behavior: 'smooth' }); e.preventDefault(); }
-  });
 })();
 </script>
 </body></html>

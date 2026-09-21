@@ -9,15 +9,18 @@
 <style>
     @layer base {
       html, body { margin: 0; padding: 0; }
-      body { overscroll-behavior: none; }
       main > :first-child { margin-top: 0 !important; }
       main > :last-child { margin-bottom: 0 !important; }
     }
-    ::-webkit-scrollbar { display: none; }
     .font-fraunces { font-family: 'Fraunces', serif; }
 
-    /* No sideways scroll on phones, whatever a single element does */
-    html, body { overflow-x: hidden; max-width: 100%; }
+    /* Vertical scrolling must never be blocked. overflow-x: clip trims
+       sideways overflow WITHOUT turning the element into a scroll
+       container, which is what overflow-x: hidden does and why it can
+       leave the page feeling frozen. Height stays auto so the document
+       grows with its content. */
+    html { overflow-x: clip; overflow-y: visible; height: auto; }
+    body { overflow-x: clip; overflow-y: visible; height: auto; min-height: 100%; }
 
     /* Anchor targets clear the sticky header */
     section[id], div[id="standards"], div[id="contact"] { scroll-margin-top: 110px; }

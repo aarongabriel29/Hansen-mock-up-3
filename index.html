@@ -1253,16 +1253,24 @@
      Paste your Google Apps Script /exec URL into ENDPOINT below.
      Until you do, this block does nothing at all.
      ============================================================ -->
+<!-- VISIT TRACKER
+     Sends each open to Google Apps Script with visitor location.
+     One alert per browser per day. Add ?test=1 to the link to bypass that while testing. -->
 <script>
 (function () {
   var ENDPOINT = "https://script.google.com/macros/s/AKfycbyuSNmH_ALX-P-DMFKVWUyxz8IYGsW-ml41uiWYguBPTmAYs8StxtEBW-_gHuFxcmDz/exec";
-  var PAGE_LABEL = "v3";
+  var PAGE_LABEL = "v2";
   if (ENDPOINT.indexOf("http") !== 0) return;
 
-  var stamp = "hansen_ping_" + PAGE_LABEL + "_" + new Date().toISOString().slice(0, 10);
-  try { if (localStorage.getItem(stamp)) return; localStorage.setItem(stamp, "1"); } catch (e) {}
-
   var params = new URLSearchParams(location.search);
+  var testing = params.has("test");
+
+  // One alert per browser per day, unless the link has ?test in it
+  var stamp = "hansen_ping_" + PAGE_LABEL + "_" + new Date().toISOString().slice(0, 10);
+  if (!testing) {
+    try { if (localStorage.getItem(stamp)) return; localStorage.setItem(stamp, "1"); } catch (e) {}
+  }
+
   var payload = {
     page: PAGE_LABEL,
     visitor: params.get("v") || "unknown",
@@ -1273,13 +1281,43 @@
     time: new Date().toISOString()
   };
 
+  // Timezone from the visitor's device, used if the IP lookup fails
+  var fallback = { timezone: "" };
+  try { fallback.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+
+  // Look up location once per page load, give up after 3 seconds
+  var locationPromise;
+  try {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 3000);
+    locationPromise = fetch("https://ipapi.co/json/", { signal: controller.signal })
+      .then(function (r) { return r.json(); })
+      .then(function (g) {
+        clearTimeout(timer);
+        if (!g || g.error) return fallback;
+        return {
+          ip: g.ip || "",
+          city: g.city || "",
+          region: g.region || "",
+          country: g.country_name || "",
+          timezone: g.timezone || fallback.timezone,
+          org: g.org || ""
+        };
+      })
+      .catch(function () { clearTimeout(timer); return fallback; });
+  } catch (e) {
+    locationPromise = Promise.resolve(fallback);
+  }
+
   var send = function (extra) {
-    fetch(ENDPOINT, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(Object.assign({}, payload, extra || {}))
-    }).catch(function () {});
+    locationPromise.then(function (loc) {
+      fetch(ENDPOINT, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(Object.assign({}, payload, loc, extra || {}))
+      }).catch(function () {});
+    });
   };
 
   send();
